@@ -1,0 +1,5 @@
+// form.html
+const CONFIG = {
+  SCHOOLS_URL: "https://mzkIII.github.io/oc_map/schools.json",
+  SUBMIT_URL:  "https://script.google.com/macros/s/AKfycbymUCqB_XSiUpqQipuvSAQAdBbaQ_ytcAv5m6zi-0Py6n92wgVGu1ccYjP16SORcqyL/exec",  // ← 更新
+};
