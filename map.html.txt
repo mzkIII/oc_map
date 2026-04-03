@@ -1,6 +1,0 @@
-// map.html
-const CONFIG = {
-  DATA_URL:   "https://script.google.com/macros/s/AKfycbymUCqB_XSiUpqQipuvSAQAdBbaQ_ytcAv5m6zi-0Py6n92wgVGu1ccYjP16SORcqyL/exec",   // ← 更新（同じURL）
-  CENTER_LAT: 35.6377437,
-  CENTER_LON: 140.2032806,
-};
