@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>全中ピン刺しチャレンジ！</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ★ CONFIG は script 内を編集してください
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; font-family: 'Noto Sans JP', sans-serif; background: #1b2e24; }
+
+#map { height: 100vh; width: 100%; }
+
+/* オーバーレイパネル */
+#panel {
+  position: absolute;
+  bottom: 30px; left: 16px;
+  z-index: 1000;
+  background: rgba(27,46,36,.88);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  padding: 16px 20px;
+  color: #fff;
+  min-width: 220px;
+  border: 1px solid rgba(116,198,157,.25);
+}
+#panel h1 { font-size: 15px; font-weight: 700; letter-spacing: .08em; color: #74c69d; }
+#panel .sub { font-size: 11px; color: #84a98c; margin-top: 2px; }
+
+.stat-row { display: flex; gap: 24px; margin-top: 14px; }
+.stat { text-align: center; }
+.stat .num { font-size: 28px; font-weight: 700; color: #74c69d; line-height: 1; }
+.stat .lbl { font-size: 11px; color: #84a98c; margin-top: 3px; }
+
+#farthest {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(116,198,157,.2);
+  font-size: 11px;
+  color: #b7e4c7;
+  line-height: 1.6;
+}
+#farthest .label { color: #74c69d; font-weight: 700; font-size: 10px; letter-spacing: .1em; }
+
+/* 学科フィルタ */
+#filter-panel {
+  position: absolute;
+  top: 16px; right: 16px;
+  z-index: 1000;
+  background: rgba(27,46,36,.88);
+  backdrop-filter: blur(8px);
+  border-radius: 14px;
+  padding: 14px 16px;
+  color: #fff;
+  border: 1px solid rgba(116,198,157,.25);
+  max-width: 220px;
+}
+
+#filter-panel h2 { font-size: 11px; color: #74c69d; letter-spacing: .08em; margin-bottom: 10px; }
+.filter-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 1px solid rgba(116,198,157,.3);
+  border-radius: 6px;
+  color: #b7e4c7;
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 10px;
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: background .15s;
+}
+.filter-btn:hover, .filter-btn.active {
+  background: rgba(116,198,157,.18);
+  border-color: #74c69d;
+  color: #fff;
+}
+
+#filter-toggle {
+  background: none;
+  border: none;
+  color: #74c69d;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 0 0 0 6px;
+  line-height: 1;
+  vertical-align: middle;
+}
+#filter-body { overflow: hidden; transition: max-height .3s ease; max-height: 300px; }
+#filter-body.collapsed { max-height: 0; }
+
+/* 更新インジケータ */
+#update-bar {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 3px;
+  z-index: 1000;
+  background: rgba(116,198,157,.15);
+}
+#update-progress {
+  height: 100%;
+  background: #74c69d;
+  width: 0%;
+  transition: width 30s linear;
+}
+
+/* ピンポップアップ */
+.leaflet-popup-content-wrapper {
+  border-radius: 10px;
+  font-family: 'Noto Sans JP', sans-serif;
+}
+.popup-name { font-size: 13px; font-weight: 700; color: #1b2e24; }
+.popup-dept { font-size: 11px; color: #52796f; margin-top: 3px; }
+</style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- 左パネル：統計 -->
+<div id="panel">
+  <h1>&#127807; 登録者マップ</h1>
+  <div class="sub" id="last-update">読込中…</div>
+  <div class="stat-row">
+    <div class="stat">
+      <div class="num" id="count">0</div>
+      <div class="lbl">登録者数</div>
+    </div>
+    <div class="stat">
+      <div class="num" id="pref-count">0</div>
+      <div class="lbl">都道府県</div>
+    </div>
+  </div>
+  <div id="farthest">
+    <div class="label">一番遠くから</div>
+    <div id="farthest-text">―</div>
+  </div>
+</div>
+
+<!-- 右パネル：学科フィルタ -->
+<div id="filter-panel">
+  <h2>FILTER BY 学科・学系
+    <button id="filter-toggle" onclick="toggleFilter()" title="折り畳む">▲</button>
+  </h2>
+  <div id="filter-body">
+    <button class="filter-btn active" onclick="setFilter('')" id="btn-all">すべて表示</button>
+    <button class="filter-btn" onclick="setFilter('情報システム学系')" id="btn-0">情報システム学系</button>
+    <button class="filter-btn" onclick="setFilter('データサイエンス学系')" id="btn-1">データサイエンス学系</button>
+    <button class="filter-btn" onclick="setFilter('メディアデザイン学系')" id="btn-2">メディアデザイン学系</button>
+    <button class="filter-btn" onclick="setFilter('看護学科')" id="btn-3">看護学科</button>
+    <button class="filter-btn" onclick="setFilter('その他・未定')" id="btn-4">その他・未定</button>
+  </div>
+</div>
+
+<div id="update-bar"><div id="update-progress"></div></div>
+
+<script>
+// ============================================================
+//  ★ CONFIG — ここだけ変更してください
+// ============================================================
+const CONFIG = {
+  // Power Automate 2（Excel→GeoJSON）が出力するJSONのURL
+  // または SharePointのExcel REST APIのURL（後述のコメント参照）
+  // 結局、GASになったのでそのURL
+  DATA_URL: "https://script.google.com/macros/s/AKfycbymUCqB_XSiUpqQipuvSAQAdBbaQ_ytcAv5m6zi-0Py6n92wgVGu1ccYjP16SORcqyL/exec",
+
+  // 大学の緯度経度（地図の初期中心）
+  // 例: 東京情報大学 35.7419, 140.0992
+  CENTER_LAT: 35.6377437,
+  CENTER_LON: 140.2032806,
+
+  REFRESH_SEC: 5,    // 自動更新間隔（秒）元は30だったのを変更した
+};
+// ============================================================
+
+// ---- 学科ごとの色定義 ★学科数に合わせて追加してください ----
+const DEPT_COLORS = {
+  "情報システム学系":  "#0000cd",
+  "データサイエンス学系":  "#800080",
+  "メディアデザイン学系": "#a52a2a",
+  "看護学科": "#ffc0cb",
+  "その他・未定":      "#888888",
+  "":                  "#74c69d",  // フィルタなし（デフォルト色）
+};
+
+function getColor(dept) {
+  for (const key of Object.keys(DEPT_COLORS)) {
+    if (dept && dept.includes(key)) return DEPT_COLORS[key];
+  }
+  return DEPT_COLORS[""];
+}
+
+// ---- Leaflet 初期化 ----
+const map = L.map("map", { zoomControl: false }).setView(
+  [CONFIG.CENTER_LAT, CONFIG.CENTER_LON], 6
+);
+L.tileLayer("https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png", {
+  attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">国土地理院</a>',
+  maxZoom: 18
+}).addTo(map);
+
+// ズームボタンを右下に配置
+L.control.zoom({ position: "bottomright" }).addTo(map);
+
+// ホームボタンを右下に追加（ズームボタンの上）
+const HomeControl = L.Control.extend({
+  options: { position: "bottomright" },
+  onAdd: function() {
+    const btn = L.DomUtil.create("button", "leaflet-bar leaflet-control");
+    btn.innerHTML = "&#8962;";
+    btn.title     = "初期表示に戻る";
+    btn.style.cssText =
+      "width:30px;height:30px;font-size:18px;cursor:pointer;" +
+      "background:#fff;border:none;display:flex;align-items:center;justify-content:center;";
+    L.DomEvent.on(btn, "click", function(e) {
+      L.DomEvent.stopPropagation(e);
+      map.setView([CONFIG.CENTER_LAT, CONFIG.CENTER_LON], 6);
+    });
+    return btn;
+  }
+});
+new HomeControl().addTo(map);
+
+// ---- 大学ピン（固定） ----
+const uniIcon = L.divIcon({
+  html: '<div style="width:14px;height:14px;background:#f4d03f;border:2px solid #1b2e24;border-radius:50%;"></div>',
+  className: "", iconAnchor: [7, 7]
+});
+L.marker([CONFIG.CENTER_LAT, CONFIG.CENTER_LON], { icon: uniIcon })
+  .bindPopup("<b>&#127979; 本学会場</b>")
+  .addTo(map);
+
+// ---- データ管理 ----
+let allData    = [];
+let markers    = [];
+let activeFilter = "";
+
+function toggleFilter() {
+  const body   = document.getElementById("filter-body");
+  const toggle = document.getElementById("filter-toggle");
+  const collapsed = body.classList.toggle("collapsed");
+  toggle.textContent = collapsed ? "▼" : "▲";
+  toggle.title       = collapsed ? "展開する" : "折り畳む";
+}
+
+function setFilter(dept) {
+  activeFilter = dept;
+  document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+  const target = dept === "" ? "btn-all" :
+    [...document.querySelectorAll(".filter-btn")]
+      .find(b => b.textContent.includes(dept))?.id;
+  if (target) document.getElementById(target).classList.add("active");
+  renderMarkers();
+}
+
+function renderMarkers() {
+  // 既存ピンをクリア
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+
+  const data = activeFilter
+    ? allData.filter(d => d.dept && d.dept.includes(activeFilter))
+    : allData;
+
+  // 同一学校でグループ化（school_name が同じものをまとめる）
+  const groups = {};
+  data.forEach(d => {
+    if (!d.lat || !d.lon) return;
+    const key = d.school_name || (d.lat + "," + d.lon);
+    if (!groups[key]) {
+      groups[key] = {
+        entries: [],
+        lat: parseFloat(d.lat),
+        lon: parseFloat(d.lon),
+        school: d.school_name || "不明"
+      };
+    }
+    groups[key].entries.push(d);
+  });
+
+  Object.values(groups).forEach(function(group) {
+    const count  = group.entries.length;
+    const color  = getColor(group.entries[0].dept);
+    // 件数に応じてピンサイズを変える（最大32px）
+    const base   = 22;
+    const size   = Math.min(base + (count - 1) * 6, 38);
+    const hsize  = Math.round(size * 1.45);
+
+    // プッシュピン（マップピン）形状のSVG
+    const countBadge = count > 1
+      ? `<text x="${size/2}" y="${size * 0.45}"
+               text-anchor="middle" dominant-baseline="central"
+               font-size="${Math.round(size * 0.32)}" font-weight="bold"
+               fill="${color}" font-family="sans-serif">${count}</text>`
+      : "";
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg"
+                      width="${size}" height="${hsize}"
+                      viewBox="0 0 30 44">
+      <path d="M15 1C8.9 1 4 5.9 4 12c0 8.5 11 22 11 22s11-13.5 11-22C26 5.9 21.1 1 15 1z"
+            fill="${color}" stroke="white" stroke-width="1.8"/>
+      <circle cx="15" cy="12" r="6" fill="white" opacity="0.9"/>
+      ${countBadge}
+    </svg>`;
+
+    const icon = L.divIcon({
+      html: svg,
+      className: "",
+      iconSize:   [size, hsize],
+      iconAnchor: [size / 2, hsize]
+    });
+
+    // ポップアップ：複数登録がある場合は一覧表示
+    const rows = group.entries.map(function(e) {
+      return `<div class="popup-entry">・${escHtml(e.dept || "未入力")}` +
+             `　${escHtml(e.grade || "")}</div>`;
+    }).join("");
+
+    const popupHtml =
+      `<div class="popup-name">${escHtml(group.school)}</div>` +
+      (count > 1
+        ? `<div class="popup-dept">${count} 件の登録</div>${rows}`
+        : `<div class="popup-dept">${escHtml(group.entries[0].dept || "未入力")}</div>`);
+
+    const mk = L.marker([group.lat, group.lon], { icon })
+      .bindPopup(popupHtml)
+      .addTo(map);
+
+    // ホバーでもポップアップを開く
+    mk.on("mouseover", function() { this.openPopup(); });
+
+    markers.push(mk);
+  });
+
+  updateStats(data);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ---- 統計表示 ----
+function updateStats(data) {
+  document.getElementById("count").textContent = data.length;
+
+  // 住所フィールドから都道府県を抽出してカウント
+  const prefs = new Set(data.map(d => {
+    const addr = d.address || "";
+    const m = addr.match(/^(..??[都道府県])/);
+    return m ? m[1] : null;
+  }).filter(Boolean));
+  document.getElementById("pref-count").textContent = prefs.size;
+
+  // 一番遠い登録者
+  if (data.length > 0) {
+    const uLat = CONFIG.CENTER_LAT, uLon = CONFIG.CENTER_LON;
+    let farthest = null, maxDist = 0;
+    data.forEach(d => {
+      if (!d.lat || !d.lon) return;
+      const dist = haversine(uLat, uLon, d.lat, d.lon);
+      if (dist > maxDist) { maxDist = dist; farthest = d; }
+    });
+    if (farthest) {
+      document.getElementById("farthest-text").textContent =
+        `${farthest.school_name || "?"}\n（約 ${Math.round(maxDist)} km）`;
+    }
+  }
+}
+
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 +
+            Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
+  return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+// ---- データ取得・更新 ----
+async function fetchData() {
+  if (CONFIG.DATA_URL.startsWith("★")) {
+    document.getElementById("last-update").textContent = "CONFIG.DATA_URL が未設定";
+    return;
+  }
+  try {
+    const res  = await fetch(CONFIG.DATA_URL + "?t=" + Date.now()); // キャッシュ回避
+    const json = await res.json();
+
+    // Power Automateが出力するGeoJSON形式と
+    // SharePoint Excel REST API形式の両方に対応
+    if (Array.isArray(json)) {
+      allData = json;                         // 配列形式
+    } else if (json.value) {
+      allData = json.value;                   // SharePoint REST API形式
+    } else if (json.features) {
+      allData = json.features.map(f => ({    // GeoJSON形式
+        ...f.properties,
+        lat: f.geometry.coordinates[1],
+        lon: f.geometry.coordinates[0]
+      }));
+    }
+
+    renderMarkers();
+    const now = new Date();
+    document.getElementById("last-update").textContent =
+      `最終更新: ${now.getHours()}:${String(now.getMinutes()).padStart(2,"0")}`;
+
+  } catch(e) {
+    document.getElementById("last-update").textContent = "更新失敗: " + e.message;
+  }
+}
+
+// ---- 自動更新 ----
+function startProgress() {
+  const bar = document.getElementById("update-progress");
+  bar.style.transition = "none";
+  bar.style.width = "0%";
+  setTimeout(() => {
+    bar.style.transition = `width ${CONFIG.REFRESH_SEC}s linear`;
+    bar.style.width = "100%";
+  }, 50);
+}
+
+fetchData();
+startProgress();
+setInterval(() => {
+  fetchData();
+  startProgress();
+}, CONFIG.REFRESH_SEC * 1000);
+</script>
+</body>
+</html>
