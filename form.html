@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>全国中学ピン刺しチャレンジ！</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   ★ 変更が必要な定数は script 内の CONFIG を編集してください
+   ============================================================ */
+:root {
+  --green:   #2d6a4f;
+  --green2:  #40916c;
+  --green3:  #74c69d;
+  --green4:  #d8f3dc;
+  --text:    #1b2e24;
+  --muted:   #52796f;
+  --border:  #b7e4c7;
+  --bg:      #f0faf3;
+  --white:   #ffffff;
+  --radius:  10px;
+  --shadow:  0 2px 12px rgba(45,106,79,.10);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 0 0 60px;
+}
+header {
+  background: var(--green);
+  color: #fff;
+  padding: 18px 20px 14px;
+  position: sticky; top: 0; z-index: 100;
+}
+header h1 { font-size: 16px; font-weight: 700; letter-spacing: .04em; }
+header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
+
+.card {
+  background: var(--white);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  margin: 16px 16px 0;
+  padding: 18px 16px;
+}
+.card h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--green4);
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-bottom: 4px;
+  margin-top: 14px;
+}
+label:first-of-type { margin-top: 0; }
+.hint { font-size: 11px; color: #84a98c; margin-bottom: 5px; }
+
+input[type=text], select {
+  width: 100%;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--white);
+  color: var(--text);
+  appearance: none;
+  outline: none;
+  transition: border-color .2s;
+}
+input[type=text]:focus, select:focus { border-color: var(--green2); }
+select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2352796f' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+
+/* オートコンプリート */
+.ac-wrap { position: relative; }
+#ac-list {
+  display: none;
+  border: 1.5px solid var(--green2);
+  border-top: none;
+  border-radius: 0 0 8px 8px;
+  background: var(--white);
+  max-height: 240px;
+  overflow-y: auto;
+  position: absolute;
+  width: 100%;
+  z-index: 200;
+  box-shadow: 0 6px 16px rgba(0,0,0,.1);
+}
+.ac-item {
+  padding: 9px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--green4);
+  font-size: 13px;
+}
+.ac-item:last-child { border-bottom: none; }
+.ac-item:hover, .ac-item.active { background: var(--green4); }
+.ac-item b { color: var(--green); font-weight: 700; }
+.ac-addr { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.ac-more { padding: 7px 12px; font-size: 11px; color: var(--muted); background: var(--bg); }
+.ac-none { padding: 10px 12px; font-size: 13px; color: var(--muted); }
+
+.confirmed {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--green);
+}
+.confirmed.show { display: flex; }
+.coord-pill {
+  background: var(--green4);
+  color: var(--green);
+  border-radius: 20px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.stats { font-size: 11px; color: #84a98c; margin-top: 4px; min-height: 16px; }
+
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+/* 都道府県セレクト */
+#pref-wrap { margin-bottom: 8px; }
+
+/* 送信ボタン */
+.submit-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 20px 16px 0;
+  background: var(--green);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius);
+  padding: 15px;
+  font-size: 16px;
+  font-family: inherit;
+  font-weight: 700;
+  letter-spacing: .06em;
+  cursor: pointer;
+  transition: background .2s, transform .1s;
+}
+.submit-btn:hover { background: var(--green2); }
+.submit-btn:active { transform: scale(.98); }
+.submit-btn:disabled { background: #84a98c; cursor: not-allowed; }
+
+/* 完了画面 */
+#done-screen {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 40px 24px;
+  text-align: center;
+}
+#done-screen .icon { font-size: 56px; margin-bottom: 16px; }
+#done-screen h2 { font-size: 22px; color: var(--green); margin-bottom: 10px; }
+#done-screen p { font-size: 14px; color: var(--muted); line-height: 1.7; }
+
+/* ローディング */
+#loading-bar {
+  height: 3px;
+  background: var(--green3);
+  width: 0%;
+  transition: width .4s;
+  position: fixed;
+  top: 0; left: 0; z-index: 999;
+}
+
+@media (max-width: 360px) {
+  .row2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="loading-bar"></div>
+
+<header>
+  <h1>全国中学ピン刺しチャレンジ！</h1>
+  <p>あなたの情報を登録して、みんなで地図を完成させよう。</p>
+</header>
+
+<div id="form-body">
+
+  <!-- 学校選択 -->
+  <div class="card">
+    <h2>出身中学校</h2>
+    <label>都道府県（任意）<span style="font-weight:400;font-size:11px;"> — 絞り込みに使います</span></label>
+    <div id="pref-wrap">
+      <select id="pref" onchange="onPrefChange()">
+        <option value="">全国</option>
+      </select>
+    </div>
+    <label>中学校名</label>
+    <div class="hint">2文字以上入力すると候補が出ます（漢字・ひらがな両方OK）</div>
+    <div class="hint">令和７年５月１日現在の公立中学校名から検索します。私立中学校出身者や統廃合で中学校名称が変わった人は自宅最寄りの中学校名を登録してください。</div>
+    <div class="ac-wrap">
+      <input type="text" id="school-input" placeholder="例：東山、ひがし、第三、桜丘…"
+             oninput="onSchoolInput()" onkeydown="onKey(event)" autocomplete="off">
+      <div id="ac-list"></div>
+    </div>
+    <div class="stats" id="stats">学校データ読込中…</div>
+    <div class="confirmed" id="confirmed">
+      <span>&#10003; 登録済み</span>
+      <span class="coord-pill" id="coord-display"></span>
+    </div>
+    <input type="hidden" id="h-lat">
+    <input type="hidden" id="h-lon">
+    <input type="hidden" id="h-name">
+    <input type="hidden" id="h-addr">  <!-- ← 追加 -->
+  </div>
+
+  <!-- 基本情報 -->
+  <div class="card">
+    <h2>基本情報</h2>
+    <div class="row2">
+      <div>
+        <label>学年</label>
+        <select id="grade">
+          <option value="">選択</option>
+          <option>高校1年</option>
+          <option>高校2年</option>
+          <option>高校3年</option>
+          <option>既卒・その他</option>
+        </select>
+      </div>
+      <div>
+        <label>希望学科・学系</label>
+        <select id="dept">
+          <option value="">選択</option>
+          <!-- ★ 学部・学科を実際のものに変更してください -->
+          <option>総合情報学科 情報システム学系</option>
+          <option>総合情報学科 データサイエンス学系</option>
+          <option>総合情報学科 メディアデザイン学系</option>
+          <option>看護学科</option>
+          <option>その他・未定</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 興味・関心 -->
+  <div class="card">
+    <h2>興味・関心</h2>
+    <label>高校で一番好きな科目</label>
+    <select id="subject">
+      <option value="">選択</option>
+      <option>数学</option>
+      <option>物理</option>
+      <option>化学</option>
+      <option>生物</option>
+      <option>地学</option>
+      <option>地理</option>
+      <option>歴史（日本史・世界史）</option>
+      <option>国語</option>
+      <option>英語</option>
+      <option>情報</option>
+      <option>芸術・体育・その他</option>
+    </select>
+
+    <label>卒業後に住みたい場所</label>
+    <select id="future">
+      <option value="">選択</option>
+      <option>地元に帰りたい</option>
+      <option>都市部に出たい</option>
+      <option>海外も視野に入れている</option>
+      <option>まだわからない</option>
+    </select>
+
+    <label>この大学を知ったきっかけ</label>
+    <select id="source">
+      <option value="">選択</option>
+      <option>高校の先生に紹介された</option>
+      <option>進学サイト（マイナビ・リクナビ等）</option>
+      <option>SNS（Instagram・X等）</option>
+      <option>家族・知人のすすめ</option>
+      <option>オープンキャンパスのチラシ</option>
+      <option>受験情報誌</option>
+      <option>その他</option>
+    </select>
+  </div>
+
+</div><!-- /#form-body -->
+
+<button class="submit-btn" id="submit-btn" onclick="submitForm()">
+  地図に登録する →
+</button>
+
+<!-- 完了画面 -->
+<div id="done-screen">
+  <div class="icon">&#127807;</div>
+  <h2>登録完了！</h2>
+  <p>あなたのピンが地図に追加されました。<br>会場のモニターで確認してみてください。</p>
+</div>
+
+<script>
+// ============================================================
+//  ★ CONFIG — ここだけ変更してください
+// ============================================================
+const CONFIG = {
+  // GitHub PagesのJSONファイルURL（schools.jsonをアップロード後のURL）
+  SCHOOLS_URL: "https://mzkIII.github.io/oc_map/schools.json",
+
+  // Power AutomateのHTTP受信URL（フロー作成後に取得したURLを貼る）
+  SUBMIT_URL: "https://script.google.com/macros/s/AKfycbymUCqB_XSiUpqQipuvSAQAdBbaQ_ytcAv5m6zi-0Py6n92wgVGu1ccYjP16SORcqyL/exec",
+};
+// ============================================================
+
+const PREFS = ["北海道","青森県","岩手県","宮城県","秋田県","山形県","福島県",
+  "茨城県","栃木県","群馬県","埼玉県","千葉県","東京都","神奈川県","新潟県",
+  "富山県","石川県","福井県","山梨県","長野県","岐阜県","静岡県","愛知県",
+  "三重県","滋賀県","京都府","大阪府","兵庫県","奈良県","和歌山県","鳥取県",
+  "島根県","岡山県","広島県","山口県","徳島県","香川県","愛媛県","高知県",
+  "福岡県","佐賀県","長崎県","熊本県","大分県","宮崎県","鹿児島県","沖縄県"];
+
+let SCHOOLS = [];
+let filtered = [];
+let acIdx = -1;
+let debTimer = null;
+
+// ---- 初期化 ----
+(async function init() {
+  // 都道府県セレクトを構築
+  const sel = document.getElementById("pref");
+  PREFS.forEach(p => {
+    const o = document.createElement("option");
+    o.value = p; o.textContent = p;
+    sel.appendChild(o);
+  });
+
+  // schools.json を読み込み
+  try {
+    const bar = document.getElementById("loading-bar");
+    bar.style.width = "40%";
+    const res = await fetch(CONFIG.SCHOOLS_URL);
+    bar.style.width = "80%";
+    SCHOOLS = await res.json();
+    bar.style.width = "100%";
+    setTimeout(() => bar.style.opacity = "0", 400);
+    document.getElementById("stats").textContent =
+      SCHOOLS.length.toLocaleString() + " 校のデータを読み込みました";
+  } catch(e) {
+    document.getElementById("stats").textContent =
+      "データ読込失敗。ネットワークを確認してください。";
+  }
+})();
+
+// ---- 都道府県変更 ----
+function onPrefChange() {
+  clearSelection();
+  document.getElementById("school-input").value = "";
+  document.getElementById("ac-list").style.display = "none";
+  document.getElementById("stats").textContent = "";
+}
+
+// ---- 入力イベント（debounce） ----
+function onSchoolInput() {
+  clearSelection();
+  clearTimeout(debTimer);
+  debTimer = setTimeout(doSearch, 80);
+}
+
+function clearSelection() {
+  document.getElementById("h-lat").value = "";
+  document.getElementById("h-lon").value = "";
+  document.getElementById("h-name").value = "";
+  document.getElementById("confirmed").classList.remove("show");
+}
+
+// ---- オートコンプリート検索 ----
+function doSearch() {
+  const val  = document.getElementById("school-input").value.trim();
+  const pref = document.getElementById("pref").value;
+  const list = document.getElementById("ac-list");
+  acIdx = -1;
+
+  if (val.length < 2) {
+    list.style.display = "none";
+    document.getElementById("stats").textContent =
+      SCHOOLS.length ? SCHOOLS.length.toLocaleString() + " 校読込済み" : "";
+    return;
+  }
+
+  const pool = pref ? SCHOOLS.filter(s => s.a.startsWith(pref)) : SCHOOLS;
+  const hits = pool.filter(s =>
+    s.n.includes(val) || (s.r && s.r.includes(val)) || s.a.includes(val)
+  );
+  filtered = hits.slice(0, 8);
+
+  document.getElementById("stats").textContent = hits.length + " 件一致";
+
+  if (!hits.length) {
+    list.innerHTML = '<div class="ac-none">候補が見つかりません。都道府県で絞り込むか、別のキーワードをお試しください。</div>';
+    list.style.display = "block";
+    return;
+  }
+
+  const hl = (str) => {
+    const i = str.indexOf(val);
+    if (i < 0) return escHtml(str);
+    return escHtml(str.slice(0,i)) + "<b>" + escHtml(str.slice(i,i+val.length)) + "</b>" + escHtml(str.slice(i+val.length));
+  };
+
+  list.innerHTML = filtered.map((s, i) =>
+    `<div class="ac-item" data-i="${i}" onmousedown="selectSchool(${i})">` +
+    `<div>${hl(s.n)}</div>` +
+    `<div class="ac-addr">${escHtml(s.a)}</div>` +
+    `</div>`
+  ).join("") +
+  (hits.length > 8
+    ? `<div class="ac-more">他 ${hits.length - 8} 件 — キーワードをさらに絞り込んでください</div>`
+    : "");
+
+  list.style.display = "block";
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ---- 学校選択 ----
+function selectSchool(i) {
+  const s = filtered[i];
+  document.getElementById("school-input").value = s.n;
+  document.getElementById("ac-list").style.display = "none";
+  document.getElementById("h-lat").value  = s.t;
+  document.getElementById("h-lon").value  = s.g;
+  document.getElementById("h-name").value = s.n;
+  document.getElementById("h-addr").value = s.a;  // ← 追加
+  document.getElementById("coord-display").textContent =
+    s.t.toFixed(4) + ", " + s.g.toFixed(4);
+  document.getElementById("confirmed").classList.add("show");
+  document.getElementById("stats").textContent = "座標確定 — 次の設問へ進んでください";
+}
+
+// ---- キーボード操作 ----
+function onKey(e) {
+  const items = document.querySelectorAll(".ac-item[data-i]");
+  if (!items.length) return;
+  if (e.key === "ArrowDown") {
+    acIdx = Math.min(acIdx + 1, items.length - 1);
+    highlightAc(items); e.preventDefault();
+  } else if (e.key === "ArrowUp") {
+    acIdx = Math.max(acIdx - 1, 0);
+    highlightAc(items); e.preventDefault();
+  } else if (e.key === "Enter" && acIdx >= 0) {
+    selectSchool(acIdx); e.preventDefault();
+  } else if (e.key === "Escape") {
+    document.getElementById("ac-list").style.display = "none";
+  }
+}
+function highlightAc(items) {
+  items.forEach((el, i) => el.classList.toggle("active", i === acIdx));
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".ac-wrap"))
+    document.getElementById("ac-list").style.display = "none";
+});
+
+// ---- 送信 ----
+async function submitForm() {
+  if (!document.getElementById("h-name").value) {
+    alert("出身中学校を候補リストから選択してください。");
+    return;
+  }
+  if (CONFIG.SUBMIT_URL.startsWith("★")) {
+    alert("CONFIG.SUBMIT_URL が設定されていません。\nPower AutomateのHTTP受信URLを貼り付けてください。");
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.textContent = "送信中…";
+
+  const payload = {
+    school_name: document.getElementById("h-name").value,
+    lat:         parseFloat(document.getElementById("h-lat").value),
+    lon:         parseFloat(document.getElementById("h-lon").value),
+    grade:       document.getElementById("grade").value,
+    dept:        document.getElementById("dept").value,
+    subject:     document.getElementById("subject").value,
+    future:      document.getElementById("future").value,
+    source:      document.getElementById("source").value,
+    address:     document.getElementById("h-addr").value,  // ← 追加
+    ts:          new Date().toISOString()
+  };
+
+  try {
+    await fetch(CONFIG.SUBMIT_URL, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(payload),
+      mode:    "no-cors"   // Power AutomateはCORSヘッダーを返さないためno-cors
+    });
+    showDone();
+  } catch(e) {
+    btn.disabled = false;
+    btn.textContent = "地図に登録する →";
+    alert("送信に失敗しました。ネットワークを確認してください。\n" + e);
+  }
+}
+
+function showDone() {
+  document.getElementById("form-body").style.display = "none";
+  document.getElementById("submit-btn").style.display = "none";
+  const done = document.getElementById("done-screen");
+  done.style.display = "flex";
+  done.style.animation = "fadeIn .5s ease";
+}
+</script>
+</body>
+</html>
